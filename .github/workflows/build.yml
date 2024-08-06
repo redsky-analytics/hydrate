@@ -1,9 +1,7 @@
 name: Node CI
 
 # Push tests pushes; PR tests merges
-on:
-  release:
-    types: [published]
+on: [ push, pull_request ]
 
 defaults:
   run:
@@ -30,17 +28,68 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
 
+    # Hardcoded individual Python and Ruby versions (for now)
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Set up pip
+      run: python -m pip install --upgrade pip
+
+    - name: Set up Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '2.7'
+
+    - name: Set up bundle
+      run: |
+        gem install bundler -v 1.17.3 # Bundler 2.x breaks test lockfile
+        bundle config jobs 4
+        bundle config retry 3
+
     - name: Env
       run: |
         echo "Event name: ${{ github.event_name }}"
         echo "Git ref:    ${{ github.ref }}"
         echo "GH actor:   ${{ github.actor }}"
         echo "SHA:        ${{ github.sha }}"
+        echo "OS ver:     ${{ matrix.os }}"
         VER=`node --version`; echo "Node ver:   $VER"
         VER=`npm --version`; echo "npm ver:    $VER"
+        VER=`python --version`; echo "Python ver: $VER"
+        VER=`pip --version`; echo "Pip ver:    $VER"
+        VER=`ruby --version`; echo "Ruby ver:   $VER"
+        VER=`bundle --version`; echo "Bundle ver: $VER"
 
     - name: Install
-      run: npm install
+      run: |
+        npm install
+        pip3 install -r requirements.txt
+
+    - name: Test (Node.js <= 16.x)
+      if: matrix.node-version <= '16.x'
+      run: npm run test:nolint
+      env:
+        CI: true
+        CI_OS: ${{ matrix.os }}
+
+    - name: Test
+      if: matrix.node-version > '16.x'
+      run: npm test
+      env:
+        CI: true
+        CI_OS: ${{ matrix.os }}
+
+    - name: Notify
+      uses: sarisia/actions-status-discord@v1
+      # Only fire alert once
+      if: github.ref == 'refs/heads/main' && failure() && matrix.node-version == '20.x' && matrix.os == 'ubuntu-latest'
+      with:
+        webhook: ${{ secrets.DISCORD_WEBHOOK }}
+        title: "build and test"
+        color: 0x222222
+        username: GitHub Actions
 
   # ----- Only git tag testing + package publishing beyond this point ----- #
 
@@ -48,6 +97,7 @@ jobs:
   publish:
     # Setup
     needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
 
     # Go
@@ -62,14 +112,23 @@ jobs:
           registry-url: https://registry.npmjs.org/
 
       # Publish to npm
+      - name: Publish @RC to npm
+        if: contains(github.ref, 'RC')
+        run: npm publish --tag RC
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      # set up git since we will later push to the repo
-      - run: git config --global user.name "GitHub CD bot"
-      - run: git config --global user.email "github-cd-bot@example.com"
-      
-      - run: npm version ${{ github.event.release.tag_name }}
-      # - run: npm ci
       - name: Publish @latest to npm
+        if: contains(github.ref, 'RC') == false #'!contains()'' doesn't work lol
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Notify
+        uses: sarisia/actions-status-discord@v1
+        if: always()
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          title: "npm publish"
+          color: 0x222222
+          username: GitHub Actions
