@@ -1,5 +1,5 @@
 {
-  "name": "@architect/hydrate",
+  "name": "@untangler/hydrate",
   "version": "4.0.7",
   "description": "Architect dependency hydrator and shared file manager",
   "main": "src/index.js",
@@ -22,15 +22,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/architect/hydrate.git"
+    "url": "git+https://github.com/redsky-analytics/hydrate.git"
   },
   "keywords": [],
   "author": "Brian LeRoux <b@brian.io>",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/architect/hydrate/issues"
+    "url": "https://github.com/redsky-analytics/hydrate/issues"
   },
-  "homepage": "https://github.com/architect/hydrate#readme",
+  "homepage": "https://github.com/redsky-analytics/hydrate#readme",
   "files": [
     "src/*"
   ],
