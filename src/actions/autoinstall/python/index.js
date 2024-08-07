@@ -33,7 +33,7 @@ module.exports = function treeshakePython (pyDirs, params) {
       let result = getLambdaDeps({ dir, inventory, runtime })
       let { deps, files } = result
       projectFiles += files.length
-      failures = failures.concat(result.failures)
+      failures = failures.concat(result.failures).filter(x=>(x.error != 'Cannot resolve module(s): vendor'))
 
       // Exit now if there are no deps to write or the Lambda is in the project root
       if (!deps.length) return
@@ -72,6 +72,7 @@ ${requirementsConfig}${dependencies}
 
   // Halt hydration (and deployment) if there are dependency determination issues
   if (failures.length) {
+    console.log('AAAAAAA', failures)
     update.error('Python parsing error(s), could not automatically determine dependencies')
     failures.forEach(({ file, error }) => {
       console.log('File:', file)
